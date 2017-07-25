@@ -248,8 +248,8 @@ class AmiTestServer extends EventEmitter {
         if (actionName !== "login" || !this._isAttempt(action.Username, action.Secret)) {
             clearTimeout(clientSocket._authTimer);
             AmiTestServer.sendToClient(clientSocket, {
-                Message: "Authentication failed",
                 Response: "Error",
+                Message: "Authentication failed",
                 ...responseData
             });
             return;
@@ -258,8 +258,8 @@ class AmiTestServer extends EventEmitter {
         clearTimeout(clientSocket._authTimer);
 
         AmiTestServer.sendToClient(clientSocket, {
-            Message: "Authentication accepted",
             Response: "Success",
+            Message: "Authentication accepted",
             ...responseData
         });
 
@@ -296,8 +296,8 @@ class AmiTestServer extends EventEmitter {
 
         if (!action || !actionName) {
             AmiTestServer.sendToClient(clientSocket, {
-                Message: "Missing action in request",
                 Response: "Error",
+                Message: "Missing action in request",
                 ...responseData
             });
             return;
@@ -305,8 +305,8 @@ class AmiTestServer extends EventEmitter {
 
         if (actionName === "ping") {
             AmiTestServer.sendToClient(clientSocket, {
-                Ping: "Pong",
                 Response: "Success",
+                Ping: "Pong",
                 Timestamp: Date.now() / 1000 + "000",
                 ...(action.ActionID ? {ActionID: action.ActionID} : {})
             });
@@ -315,8 +315,8 @@ class AmiTestServer extends EventEmitter {
 
         if (actionName !== "login" && actionName !== "logoff") {
             AmiTestServer.sendToClient(clientSocket, {
-                Message: "Invalid/unknown command",
                 Response: "Error",
+                Message: "Invalid/unknown command",
                 ...responseData
             });
             return;
@@ -327,8 +327,8 @@ class AmiTestServer extends EventEmitter {
             if (actionName === "logoff") {
                 clearTimeout(clientSocket._authTimer);
                 AmiTestServer.sendToClient(clientSocket, {
-                    Message: "Thanks for all the fish.",
                     Response: "Goodbye",
+                    Message: "Thanks for all the fish.",
                     ...(action.ActionID ? {ActionID: action.ActionID} : {})
                 });
             }
