@@ -1,5 +1,5 @@
 {
-  "name": "local-asterisk-ami-test-server",
+  "name": "dfi-asterisk-ami-test-server",
   "version": "0.1.5",
   "description": "Asterisk Ami Test Server for NodeJS (ES2015)",
   "engines": {

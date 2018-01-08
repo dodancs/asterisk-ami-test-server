@@ -144,5 +144,6 @@ Icon?
 
 # tmp files & folders
 tmp
-
+/**/*.js
+/**/*.map
 

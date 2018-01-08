@@ -258,8 +258,8 @@ describe("AmiTestServer internal functionality", () => {
                                 .once("data", (chunk1) => {
                                     const str = chunk1.toString();
                                     assert.equal(str, [
-                                        "Message: Thanks for all the fish.",
                                         "Response: Goodbye",
+                                        "Message: Thanks for all the fish.",
                                         "ActionID: logoff_123"
                                     ].join(CRLF) + CRLF.repeat(2));
                                     done();
@@ -291,8 +291,8 @@ describe("AmiTestServer internal functionality", () => {
                                 .once("data", (chunk1) => {
                                     const str = chunk1.toString();
                                     assert.equal(str, [
-                                        "Message: Missing action in request",
                                         "Response: Error",
+                                        "Message: Missing action in request",
                                         "ActionID: empty_123"
                                     ].join(CRLF) + CRLF.repeat(2));
                                     done();
@@ -324,8 +324,8 @@ describe("AmiTestServer internal functionality", () => {
                                 .once("data", (chunk1) => {
                                     const str = chunk1.toString();
                                     assert.equal(str, [
-                                        "Message: Invalid/unknown command",
                                         "Response: Error",
+                                        "Message: Invalid/unknown command",
                                         "ActionID: nosupport_123"
                                     ].join(CRLF) + CRLF.repeat(2));
                                     done();
