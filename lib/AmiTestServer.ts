@@ -10,10 +10,10 @@
 // const amiUtils = require("asterisk-ami-event-utils");
 // const amiDataStream = require("asterisk-ami-events-stream");
 
+import * as AmiEventsStream from "asterisk-ami-events-stream";
 import debug from "debug";
+import amiUtils from "dfi-asterisk-ami-event-utils";
 import {EventEmitter} from "events";
-import amiUtils from "local-asterisk-ami-event-utils";
-import AmiEventsStream from "local-asterisk-ami-events-stream";
 import * as net from "net";
 import shortId = require("shortid");
 
@@ -22,7 +22,6 @@ const errorLog = debug("AmiTestServer:error");
 
 const meta = require("../package.json");
 const CRLF = "\r\n";
-
 
 /**
  * AmiTestServer
