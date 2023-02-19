@@ -147,3 +147,5 @@ tmp
 /**/*.js
 /**/*.map
 
+package-lock.json
+lib/

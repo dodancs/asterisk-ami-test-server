@@ -6,26 +6,21 @@
 
 import * as assert from "assert";
 import * as net from "net";
-import {error} from "util";
-import AmiTestServer from "../lib/AmiTestServer";
+import { AmiTestServer } from "../src/AmiTestServer";
 
 const CRLF = "\r\n";
 
 process.on("unhandledRejection", (err) => {
     assert.ifError(err);
-})
+});
 
-describe("AmiTestServer internal functionality", () => {
-    function onBefore() {
-        this.timeout(process.env.MOCHA_TIMEOUT || 2000);
-    }
+describe("AmiTestServer internal functionality", function () {
+    this.timeout(process.env.MOCHA_TIMEOUT || 2000);
 
-    before(onBefore);
-
-    let server: AmiTestServer = null;
-    let client = null;
-    let optionsDefault = null;
-    const defaultPort = 5038;
+    let server: AmiTestServer;
+    let client: net.Socket;
+    let optionsDefault: Record<string, any> = {};
+    const defaultPort: number = 5038;
 
     beforeEach(() => {
         optionsDefault = {
@@ -48,16 +43,14 @@ describe("AmiTestServer internal functionality", () => {
             client.destroy();
             client.removeAllListeners();
         }
-        server = null;
-        client = null;
     });
 
     it(`Listening on port ${defaultPort}`, (done) => {
-        server.listen({port: defaultPort})
+        server.listen(defaultPort)
             .then(() => {
-                client = net.connect(defaultPort, "localhost", done);
+                client = net.connect(defaultPort, 'localhost', done);
             })
-            .catch((error) => {
+            .catch((error: Error | string) => {
                 done(error);
             });
     });
@@ -67,7 +60,7 @@ describe("AmiTestServer internal functionality", () => {
         server = new AmiTestServer(optionsDefault);
         server.listen(defaultPort).then(() => {
             let isConnected = false;
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 isConnected = true;
             });
             client.on("close", () => {
@@ -83,8 +76,8 @@ describe("AmiTestServer internal functionality", () => {
         server = new AmiTestServer(optionsDefault);
 
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
-                const client2 = net.connect({port: defaultPort});
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
+                const client2 = net.connect({ port: defaultPort, host: 'localhost' });
                 client2
                     .on("close", () => {
                         client2.destroy();
@@ -101,7 +94,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Auth with correct credentials", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -119,7 +112,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Auth with incorrect credentials", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Error/.test(chunk.toString())) {
@@ -137,7 +130,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Get server authClients", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -156,7 +149,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Get server unAuthClients", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 setTimeout(() => {
                     assert.equal(server.getUnAuthClients().length, 1);
                     done();
@@ -167,12 +160,12 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Get server total clients", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
 
-                            const client2 = net.connect({port: defaultPort}, () => {
+                            const client2 = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                                 setTimeout(() => {
                                     assert.equal(server.getClients().length, 2);
                                     client2.destroy();
@@ -198,7 +191,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Ping action before auth", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         const str = chunk.toString();
@@ -208,16 +201,16 @@ describe("AmiTestServer internal functionality", () => {
                         // assert.ok(/Timestamp: \d{10}\.\d{6}/.test(str));
                         done();
                     }).write([
-                    "Action: Ping",
-                    "ActionID: testID"
-                ].join(CRLF) + CRLF.repeat(2));
+                        "Action: Ping",
+                        "ActionID: testID"
+                    ].join(CRLF) + CRLF.repeat(2));
             });
         });
     });
 
     it("Ping action after auth", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -249,7 +242,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Logoff action", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -282,7 +275,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Action without name (empty)", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -315,7 +308,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Not support action", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {
@@ -348,7 +341,7 @@ describe("AmiTestServer internal functionality", () => {
 
     it("Server broadcast event", (done) => {
         server.listen(defaultPort).then(() => {
-            client = net.connect({port: defaultPort}, () => {
+            client = net.connect({ port: defaultPort, host: 'localhost' }, () => {
                 client
                     .once("data", (chunk) => {
                         if (/Response: Success/.test(chunk.toString())) {

@@ -127,3 +127,6 @@ tmp
 .gitignore
 .npmignore
 .travis.yml
+
+# VSCode
+.devcontainer

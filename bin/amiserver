@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#! /usr/bin/env node
 
 /**
  * Developer: BelirafoN
@@ -9,7 +9,7 @@
 "use strict";
 
 let argv = require('yargs').argv;
-const AmiSurrogateServer = require('../lib/AmiTestServer');
+const AmiTestServer_1 = require("../lib/AmiTestServer");
 const meta = require('../package.json');
 const defaultOptions = {
     port: 5038,
@@ -21,7 +21,7 @@ const defaultOptions = {
     }
 };
 
-if(argv.help){
+if (argv.help) {
     console.log(`-`.repeat(36));
     console.log(`| asterisk ami test server `.toUpperCase() + `v${meta.version} |`);
     console.log(`-`.repeat(36));
@@ -39,5 +39,5 @@ let options = Object.keys(defaultOptions).reduce((result, key) => {
     return result;
 }, {});
 
-new AmiSurrogateServer(options).listen(options.port)
+new AmiTestServer_1.AmiTestServer(options).listen(options.port)
     .catch(error => console.log(error));

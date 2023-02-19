@@ -10,31 +10,33 @@
 // const amiUtils = require("asterisk-ami-event-utils");
 // const amiDataStream = require("asterisk-ami-events-stream");
 
-import * as AmiEventsStream from "asterisk-ami-events-stream";
-import debug from "debug";
-import amiUtils from "dfi-asterisk-ami-event-utils";
-import {EventEmitter} from "events";
+import { AmiEvent, AmiEventsStream } from "@dodancs/asterisk-ami-events-stream";
+import amiUtils from "@dodancs/asterisk-ami-event-utils";
+import { EventEmitter } from "events";
 import * as net from "net";
-import shortId = require("shortid");
+import * as shortId from "shortid";
 
-const debugLog = debug("AmiTestServer");
-const errorLog = debug("AmiTestServer:error");
-
-const meta = require("../package.json");
+import * as meta from "../package.json";
 const CRLF = "\r\n";
+
+interface AmiSocket extends net.Socket {
+    _authTimer: NodeJS.Timeout | null;
+    _eventStream: AmiEventsStream;
+    _key: string;
+}
 
 /**
  * AmiTestServer
  */
-class AmiTestServer extends EventEmitter {
+export class AmiTestServer extends EventEmitter {
 
     /**
      *
      * @param clients
      * @returns {*}
      */
-    public static objectValues(clients) {
-        return Object.keys(clients).reduce((clientsArr, key) => {
+    public static objectValues(clients: Record<string, AmiSocket>) {
+        return Object.keys(clients).reduce((clientsArr: AmiSocket[], key: string) => {
             clientsArr.push(clients[key]);
             return clientsArr;
         }, []);
@@ -45,56 +47,56 @@ class AmiTestServer extends EventEmitter {
      * @param clientSocket
      * @param message
      */
-    public static sendToClient(clientSocket, message) {
+    public static sendToClient(clientSocket: AmiSocket, message: AmiEvent) {
         clientSocket.write(amiUtils.fromObject(message));
     }
 
-    private _authClients: {};
-    private _server: any;
-    private _unAuthClients: {};
-    private _options: any;
-    private _helloMessage: string;
+    private _authClients: Record<string, AmiSocket> = {};
+    private _server: net.Server;
+    private _unAuthClients: Record<string, AmiSocket> = {};
+    private _options: Record<string, any> = {};
+    private _helloMessage: string = "";
 
-    constructor(options) {
+    constructor(options?: Record<string, any>) {
         super();
 
-        Object.assign(this, {
-            _authClients: {},
-            _helloMessage: `Asterisk AMI Test Server ${meta.version}`,
-            _options: {
-                authTimeout: 30000,
-                credentials: {},
-                maxConnections: 50,
-                silent: false,
-                ...(options || {})
-            },
-            _server: net.createServer(),
-            _unAuthClients: {}
-        });
+        this._helloMessage = `Asterisk AMI Test Server ${meta.version}`;
+        this._options = {
+            authTimeout: 30000,
+            credentials: {},
+            maxConnections: 50,
+            silent: false,
+            ...(options || {})
+        };
+        this._server = net.createServer();
     }
 
-    public broadcast(data): this {
+    public broadcast(data: string): this {
         Object.keys(this._authClients).forEach((key) => {
             this._authClients[key].write(data);
         });
         return this;
     }
 
-    public listen(port): Promise<AmiTestServer> {
+    public listen(port: number): Promise<AmiTestServer> {
         return new Promise((resolve, reject) => {
-            return new Promise((resolve1, reject1) => {
-                this._server.on("error", (error) => {
+            return new Promise((resolve1: (value: AmiTestServer) => void, reject1) => {
+                this._server.on("error", (error: Error | string) => {
                     reject1(error);
                 });
-                this._server.listen(port, () => {
+                this._server.listen(port, '0.0.0.0', () => {
                     if (!this._options.silent) {
-                        console.log(`Asterisk AMI Test Server listening on ${this._server.address().port} port`);
+                        const addr = this._server.address();
+                        const binding = typeof addr === 'string'
+                            ? `pipe/socket ${addr}`
+                            : `port ${addr?.port}`;
+                        console.log(`Asterisk AMI Test Server listening on ${binding} port`);
                     }
 
                     this._server
                         .on("close", this.close.bind(this))
                         .on("connection", this._connectionHandler.bind(this))
-                        .on("error", (error) => {
+                        .on("error", (error: string) => {
                             this.emit(error);
                         })
                         .on("listening", () => this.emit("listening"));
@@ -117,9 +119,12 @@ class AmiTestServer extends EventEmitter {
      * @returns {AmiTestServer}
      */
     public close() {
-        this.getClients().forEach((client) => {
-            if (client instanceof net.Socket) {
-                client.end();
+        this.getClients().forEach((client: AmiSocket) => {
+            client.end();
+            client.destroy();
+            if (client._authTimer !== null) {
+                clearTimeout(client._authTimer);
+                client._authTimer = null;
             }
         });
         this._authClients = {};
@@ -153,7 +158,7 @@ class AmiTestServer extends EventEmitter {
      * @returns {Array.<T>}
      */
     public getClients() {
-        return [].concat(this.getAuthClients(), this.getUnAuthClients());
+        return (new Array<AmiSocket>).concat(this.getAuthClients(), this.getUnAuthClients());
     }
 
     /**
@@ -163,7 +168,7 @@ class AmiTestServer extends EventEmitter {
      * @returns {boolean}
      * @private
      */
-    private _isAttempt(login, password) {
+    private _isAttempt(login: string | undefined | null, password: string | undefined | null) {
         const credentials = this._options.credentials;
         return !credentials ||
             !credentials.username ||
@@ -187,18 +192,17 @@ class AmiTestServer extends EventEmitter {
      * @param clientSocket
      * @private
      */
-    private _connectionHandler(clientSocket) {
+    private _connectionHandler(clientSocket: AmiSocket) {
         if (!this._isAllowConnection()) {
-            debugLog(`Connection rejected. Clients count: ${Object.keys(this._authClients).length}, maxConnections: ${this._options.maxConnections}`);
+            console.debug(`Connection rejected. Clients count: ${Object.keys(this._authClients).length}, maxConnections: ${this._options.maxConnections}`);
             clientSocket.end();
+            clientSocket.destroy();
             return;
         }
 
-        Object.assign(clientSocket, {
-            _authTimer: null,
-            _eventStream: new AmiEventsStream(),
-            _key: shortId.generate()
-        });
+        clientSocket._authTimer = null;
+        clientSocket._eventStream = new AmiEventsStream();
+        clientSocket._key = shortId.generate();
 
         this._unAuthClients[clientSocket._key] = clientSocket;
 
@@ -207,27 +211,37 @@ class AmiTestServer extends EventEmitter {
                 if (clientSocket._eventStream) {
                     clientSocket.unpipe(clientSocket._eventStream);
                 }
+                if (clientSocket._authTimer !== null) {
+                    clearTimeout(clientSocket._authTimer);
+                    clientSocket._authTimer = null;
+                }
                 delete this._authClients[clientSocket._key];
                 delete this._unAuthClients[clientSocket._key];
-                debugLog(`Client disconnected [key:${clientSocket._key}].`);
+                console.debug(`[key:${clientSocket._key}]`, 'Client disconnected.');
             })
             .on("error", (error) => {
                 if (clientSocket._eventStream) {
                     clientSocket.unpipe(clientSocket._eventStream);
                 }
+                if (clientSocket._authTimer !== null) {
+                    clearTimeout(clientSocket._authTimer);
+                    clientSocket._authTimer = null;
+                }
                 delete this._authClients[clientSocket._key];
-                debugLog(`Client connection error [key:${clientSocket._key}]: ${error.message}.`);
+                console.debug(`[key:${clientSocket._key}]`, `Client connection error: ${error.message}.`);
             })
             .pipe(clientSocket._eventStream);
 
         clientSocket._authTimer = setTimeout((clientSocket1) => {
+            console.debug(`[key:${clientSocket1._key}]`, 'Client failed to authenticate.');
             clientSocket1.unpipe(clientSocket1._eventStream);
             clientSocket1.end();
+            clientSocket1.destroy();
             delete this._unAuthClients[clientSocket1._key];
         }, this._options.authTimeout, clientSocket);
 
         clientSocket._eventStream.on("amiAction", (action) => this._amiActionHandler(action, clientSocket));
-        debugLog(`Client's connect established [key:${clientSocket._key}].`);
+        console.debug(`[key:${clientSocket._key}]`, 'Client\'s connection established.');
     }
 
     /**
@@ -236,16 +250,20 @@ class AmiTestServer extends EventEmitter {
      * @param clientSocket
      * @private
      */
-    private _authHandler(action, clientSocket) {
-        let actionName = null;
-        const responseData = action.ActionID ? {ActionID: action.ActionID} : {};
+    private _authHandler(action: AmiEvent, clientSocket: AmiSocket) {
+        let actionName: string | null = null;
+        const responseData = action.ActionID ? { ActionID: action.ActionID } : {};
 
         if (action && action.Action) {
             actionName = action.Action.toLowerCase();
         }
 
         if (actionName !== "login" || !this._isAttempt(action.Username, action.Secret)) {
-            clearTimeout(clientSocket._authTimer);
+            if (clientSocket._authTimer !== null) {
+                clearTimeout(clientSocket._authTimer);
+                clientSocket._authTimer = null;
+            }
+
             AmiTestServer.sendToClient(clientSocket, {
                 Response: "Error",
                 Message: "Authentication failed",
@@ -254,7 +272,10 @@ class AmiTestServer extends EventEmitter {
             return;
         }
 
-        clearTimeout(clientSocket._authTimer);
+        if (clientSocket._authTimer !== null) {
+            clearTimeout(clientSocket._authTimer);
+            clientSocket._authTimer = null;
+        }
 
         AmiTestServer.sendToClient(clientSocket, {
             Response: "Success",
@@ -276,7 +297,7 @@ class AmiTestServer extends EventEmitter {
 
         const authClientsCount = Object.keys(this._authClients).length;
         this.emit("connection", authClientsCount);
-        debugLog(`Client authorized [key:${clientSocket._key}]. Clients count: ${authClientsCount}`);
+        console.debug(`[key:${clientSocket._key}]`, `Client authorized. Clients count: ${authClientsCount}`);
     }
 
     /**
@@ -285,12 +306,15 @@ class AmiTestServer extends EventEmitter {
      * @param clientSocket
      * @private
      */
-    private _amiActionHandler(action, clientSocket) {
+    private _amiActionHandler(action: AmiEvent, clientSocket: AmiSocket) {
         let actionName = null;
-        const responseData = action.ActionID ? {ActionID: action.ActionID} : {};
+        const responseData = action.ActionID ? { ActionID: action.ActionID } : {};
+
+        console.debug(action);
 
         if (action && action.Action) {
             actionName = action.Action.toLowerCase();
+            console.debug(actionName);
         }
 
         if (!action || !actionName) {
@@ -307,7 +331,7 @@ class AmiTestServer extends EventEmitter {
                 Response: "Success",
                 Ping: "Pong",
                 Timestamp: Date.now() / 1000 + "000",
-                ...(action.ActionID ? {ActionID: action.ActionID} : {})
+                ...(action.ActionID ? { ActionID: action.ActionID } : {})
             });
             return;
         }
@@ -324,11 +348,14 @@ class AmiTestServer extends EventEmitter {
         if (this._authClients[clientSocket._key]) {
 
             if (actionName === "logoff") {
-                clearTimeout(clientSocket._authTimer);
+                if (clientSocket._authTimer !== null) {
+                    clearTimeout(clientSocket._authTimer);
+                    clientSocket._authTimer = null;
+                }
                 AmiTestServer.sendToClient(clientSocket, {
                     Response: "Goodbye",
                     Message: "Thanks for all the fish.",
-                    ...(action.ActionID ? {ActionID: action.ActionID} : {})
+                    ...(action.ActionID ? { ActionID: action.ActionID } : {})
                 });
             }
 
@@ -338,5 +365,3 @@ class AmiTestServer extends EventEmitter {
     }
 
 }
-
-export default AmiTestServer;
