@@ -123,6 +123,12 @@ Icon?
 # tmp files & folders
 tmp
 
+src/
+package-lock.json
+tsconfig.json
+tslint.json
+test/
+
 # Some dot-files
 .gitignore
 .npmignore
